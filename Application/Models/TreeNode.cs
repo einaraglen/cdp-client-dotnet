@@ -1,4 +1,5 @@
 using CDPStudio.Events;
+using CDPStudio.Handlers;
 
 namespace CDPStudio.Models;
 
@@ -11,8 +12,9 @@ class TreeNode
     public string route { get; set; }
     private Dictionary<string, TreeNode> children { get; set; }
     private ValueSubscriber subscriber;
+    private PacketSender sender;
 
-    public TreeNode(string parent, Node node, ValueSubscriber subscriber)
+    public TreeNode(string parent, Node node, ValueSubscriber subscriber, PacketSender sender)
     {
         id = node.Info.NodeId;
         name = node.Info.Name;
@@ -21,6 +23,7 @@ class TreeNode
         route = parent + "." + node.Info.Name;
 
         this.subscriber = subscriber;
+        this.sender = sender;
 
         children = new Dictionary<string, TreeNode>();
 
@@ -28,31 +31,47 @@ class TreeNode
         {
             foreach (Node child in node.Node_)
             {
-                children.Add(child.Info.Name, new TreeNode(route, child, subscriber));
+                children.Add(child.Info.Name, new TreeNode(route, child, subscriber, sender));
             }
         }
     }
 
-    public bool HasChild(string name) {
+    public bool HasChild(string name)
+    {
         return children.ContainsKey(name);
     }
 
-    public TreeNode? GetChild(string name) {
-        if (!children.ContainsKey(name)) {
+    public TreeNode? GetChild(string name)
+    {
+        if (!children.ContainsKey(name))
+        {
             return null;
-        } 
+        }
 
         return children[name];
     }
 
-    public void ForEachChild(Action<TreeNode> callback) {
-        foreach (TreeNode child in children.Values) {
+    public void ForEachChild(Action<TreeNode> callback)
+    {
+        foreach (TreeNode child in children.Values)
+        {
             callback.Invoke(child);
         }
     }
 
-    public void InsertChild(Node child) {
-        children.Add(child.Info.Name, new TreeNode(route, child, subscriber));
+    public void InsertChild(Node child)
+    {
+        children.Add(child.Info.Name, new TreeNode(route, child, subscriber, sender));
+    }
+
+    public void SetValue(object value)
+    {
+        Task.Run(async () =>
+        {
+            DateTime now = DateTime.UtcNow;
+            ulong unix = (ulong)now.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
+            await sender.MakeSetRequest(id, valueType, value, unix);
+        });
     }
 
     public void SubscribeToValue(Action<VariantValue> callback)
@@ -65,7 +84,8 @@ class TreeNode
         subscriber.UnregisterSubscriber(id, callback);
     }
 
-    public async Task<VariantValue> GetValue() {
+    public async Task<VariantValue> GetValue()
+    {
         TaskCompletionSource<VariantValue> result = new TaskCompletionSource<VariantValue>();
 
         Action<VariantValue> callback = result.SetResult;

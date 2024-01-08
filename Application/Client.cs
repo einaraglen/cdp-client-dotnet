@@ -11,8 +11,7 @@ class Client
     private ClientWebSocket socket;
     private PacketReceiver receiver;
     private PacketSender sender;
-    private StructureEmitter struct_channel;
-    private ValueEmitter value_channel;
+    private EventChannel channel;
     private ValueSubscriber value_subscriber;
     private TreeNode? root;
 
@@ -21,13 +20,10 @@ class Client
         uri = new Uri(endpoint);
         socket = new ClientWebSocket();
 
-        struct_channel = new StructureEmitter();
-        value_channel = new ValueEmitter();
-
-        sender = new PacketSender(socket, struct_channel);
-        receiver = new PacketReceiver(socket, struct_channel, value_channel);
-
-        value_subscriber = new ValueSubscriber(sender, value_channel);
+        channel = new EventChannel();
+        sender = new PacketSender(socket, channel);
+        receiver = new PacketReceiver(socket, channel);
+        value_subscriber = new ValueSubscriber(sender, channel);
     }
 
     public Task ConnectAsync() {
@@ -47,7 +43,7 @@ class Client
 
         Node node = await sender.MakeStructureRequest(0);
 
-        root = new TreeNode("", node, value_subscriber);
+        root = new TreeNode("", node, value_subscriber, sender);
     }
 
     public Hello? Metadata()
@@ -63,18 +59,18 @@ class Client
 
     private TreeNode SearchLocalTree(string route)
     {
-        string[] heritage = route.Split(".");
+        string[] lineage = route.Split(".");
 
         TreeNode last = root!;
 
-        for (int i = 1; i < heritage.Length; i++)
+        for (int i = 1; i < lineage.Length; i++)
         {
-            if (!last.HasChild(heritage[i]))
+            if (!last.HasChild(lineage[i]))
             {
                 break;
             }
 
-            last = last.GetChild(heritage[i])!;
+            last = last.GetChild(lineage[i])!;
         }
 
         return last;
@@ -82,8 +78,8 @@ class Client
 
     private async Task<TreeNode> SearchStudioTree(string route, TreeNode last)
     {
-        string[] heritage = route.Split(".");
-        int start = Array.IndexOf(heritage, last.name);
+        string[] lineage = route.Split(".");
+        int start = Array.IndexOf(lineage, last.name);
 
         if (route == last.route) {
             return last;
@@ -91,7 +87,7 @@ class Client
 
         TreeNode temp = last;
 
-        for (int i = start; i < heritage.Length; i++)
+        for (int i = start; i < lineage.Length; i++)
         {
             Node node = await sender.MakeStructureRequest(temp.id);
 
@@ -100,12 +96,12 @@ class Client
                 temp.InsertChild(node);
             }
 
-            if (!temp.HasChild(heritage[i]))
+            if (!temp.HasChild(lineage[i]))
             {
                 throw new Exception($"Invalid route {route}");
             }
 
-            temp = temp.GetChild(heritage[i])!;
+            temp = temp.GetChild(lineage[i])!;
         }
 
         return temp;

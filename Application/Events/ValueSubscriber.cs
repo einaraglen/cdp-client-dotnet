@@ -8,11 +8,11 @@ class ValueSubscriber
     private Dictionary<uint, HashSet<Action<VariantValue>>> subscribers;
     private const int FS = 100;
     private const int SAMPLE_RATE = 0;
-    public ValueSubscriber(PacketSender sender, ValueEmitter value_channel)
+    public ValueSubscriber(PacketSender sender, EventChannel channel)
     {
         subscribers = new Dictionary<uint, HashSet<Action<VariantValue>>>();
         this.sender = sender;
-        value_channel.OnEvent += PropegateEvent;
+        channel.OnValue += PropegateEvent;
     }
 
     public void RegisterSubscriber(uint id, Action<VariantValue> callback)

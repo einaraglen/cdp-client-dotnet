@@ -8,14 +8,11 @@ class PacketReceiver
     private ClientWebSocket socket;
     public Hello? metadata { get; set; }
     public TaskCompletionSource<bool> connected { get; }
-    private StructureEmitter struct_channel;
-    private ValueEmitter value_channel;
-
-    public PacketReceiver(ClientWebSocket socket, StructureEmitter struct_channel, ValueEmitter value_channel)
+    private EventChannel channel;
+    public PacketReceiver(ClientWebSocket socket, EventChannel channel)
     {
         this.socket = socket;
-        this.struct_channel = struct_channel;
-        this.value_channel = value_channel;
+        this.channel = channel;
         connected = new TaskCompletionSource<bool>();
     }
 
@@ -48,7 +45,7 @@ class PacketReceiver
     {
         foreach (Node node in response)
         {
-            struct_channel.Raise(node);
+            channel.RaiseStructure(node);
         }
     }
 
@@ -56,7 +53,7 @@ class PacketReceiver
     {
         foreach (VariantValue value in response)
         {
-            value_channel.Raise(value);
+            channel.RaiseValue(value);
         }
     }
 

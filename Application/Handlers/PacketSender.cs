@@ -7,12 +7,12 @@ namespace CDPStudio.Handlers;
 class PacketSender
 {
     private ClientWebSocket socket;
-    private StructureEmitter struct_channel;
+    private EventChannel channel;
     
-    public PacketSender(ClientWebSocket socket, StructureEmitter struct_channel)
+    public PacketSender(ClientWebSocket socket, EventChannel channel)
     {
         this.socket = socket;
-        this.struct_channel = struct_channel;
+        this.channel = channel;
     }
 
     public async Task<Node> MakeStructureRequest(uint id)
@@ -30,9 +30,9 @@ class PacketSender
 
         await SendPacket(packet);
 
-        struct_channel.OnEvent += callback;
+        channel.OnStructure += callback;
         Node node = await result.Task;
-        struct_channel.OnEvent -= callback;
+        channel.OnStructure -= callback;
 
         return node;
     }
